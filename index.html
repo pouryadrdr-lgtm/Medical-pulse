@@ -211,6 +211,7 @@
     </div>
     <div class="sep"></div>
     <select id="channel-type-select"><option value="">Channel Type: All</option></select>
+    <select id="brand-select"><option value="">Brand: All</option></select>
     <span id="range-label"></span>
   </div>
 
@@ -399,6 +400,7 @@
   var dateFilter = 'last7'; // lastday | last7 | last30 | mtd | qtd | custom
   var customFrom = null, customTo = null; // ISO strings, only used when dateFilter === 'custom'
   var channelTypeFilter = '';
+  var brandFilter = ''; // only meaningful on E-visit today — Appointment has no Brand column, filter is inert there
   var trendMetric = 'leads';
   var breakdownDim = 'channelType';
   var activeTab = 'overview';
@@ -411,7 +413,7 @@
 
   var els = {};
   ['status-dot','status-text','settings-panel','endpoint-input','endpoint-label','empty-state','empty-title','empty-desc','error-state','error-detail',
-   'content','tiles','line-select','date-filter-select','custom-range','from-y','from-m','from-d','to-y','to-m','to-d','channel-type-select','range-label',
+   'content','tiles','line-select','date-filter-select','custom-range','from-y','from-m','from-d','to-y','to-m','to-d','channel-type-select','brand-select','range-label',
    'trend-metric-select','breakdown-dim-select','footer-time',
    'lp-summary','cp-summary'].forEach(function(id){
     els[id.replace(/-([a-z])/g,function(_,c){return c.toUpperCase();})] = document.getElementById(id);
@@ -599,6 +601,7 @@
       var d = field(row,'date');
       if (d < range.from || d > range.to) return false;
       if (channelTypeFilter && field(row,'channelType') !== channelTypeFilter) return false;
+      if (brandFilter && field(row,'brand') !== brandFilter) return false;
       return true;
     });
   }
@@ -692,6 +695,19 @@
       els.channelTypeSelect.appendChild(o);
     });
     els.channelTypeSelect.value = current;
+
+    // No canonical Brand list endpoint (only E-visit's Data tab even has the column) — same fallback
+    // used above for Channel Type when no server-provided list exists: scan what's actually loaded.
+    var currentBrand = els.brandSelect.value;
+    var brands = {};
+    RAW.rows.forEach(function(row){ var v = field(row,'brand'); if (v) brands[v] = true; });
+    var brandList = Object.keys(brands).sort();
+    els.brandSelect.innerHTML = '<option value="">Brand: All</option>';
+    brandList.forEach(function(b){
+      var o = document.createElement('option'); o.value = b; o.textContent = b;
+      els.brandSelect.appendChild(o);
+    });
+    els.brandSelect.value = currentBrand;
 
     if (!els.trendMetricSelect.options.length){
       ['leads','mql','orders','cost','sessions','impressions','clicks','cpl','cpo','cpmql'].forEach(function(m){
@@ -1012,7 +1028,7 @@
   // data/targets/channel list is valid for the new one, so every derived bit of state resets.
   function resetForLineSwitch(){
     RAW = null; TARGETS = null; CHANNEL_TYPES = []; anchorISO = null; minISO = null;
-    customFrom = null; customTo = null; channelTypeFilter = '';
+    customFrom = null; customTo = null; channelTypeFilter = ''; brandFilter = '';
   }
 
   function load(isManual){
@@ -1059,6 +1075,7 @@
     load(true);
   });
   els.channelTypeSelect.addEventListener('change', function(){ channelTypeFilter = els.channelTypeSelect.value; renderAll(); });
+  els.brandSelect.addEventListener('change', function(){ brandFilter = els.brandSelect.value; renderAll(); });
   els.trendMetricSelect.addEventListener('change', function(){ trendMetric = els.trendMetricSelect.value; renderTrend(filteredRows()); });
   els.breakdownDimSelect.addEventListener('change', function(){ breakdownDim = els.breakdownDimSelect.value; renderBreakdown(filteredRows()); });
   els.dateFilterSelect.addEventListener('change', function(){ dateFilter = els.dateFilterSelect.value; renderAll(); });
